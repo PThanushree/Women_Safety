@@ -5,7 +5,13 @@ import { AiFillDelete, AiOutlineClose } from "react-icons/ai";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-const socket = io("http://localhost:8000");
+// Use environment variable for backend URL
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const SOCKET_URL = API_URL.replace("/api", ""); // Socket.IO runs at backend root
+
+const socket = io(SOCKET_URL, {
+  transports: ["websocket", "polling"],
+});
 
 const Chat = ({ setOpen, open }) => {
   const navigate = useNavigate();
@@ -21,7 +27,7 @@ const Chat = ({ setOpen, open }) => {
   const fetchMessages = async () => {
     if (!token) return;
     try {
-      const res = await axios.get("http://localhost:8000/api/chat/get", {
+      const res = await axios.get(`${API_URL}/chat/get`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setMessages(res.data);
@@ -37,6 +43,7 @@ const Chat = ({ setOpen, open }) => {
   // Socket listeners
   useEffect(() => {
     if (!token) return;
+
     const handleMessage = (msg) => setMessages((prev) => [...prev, msg]);
     const handleDelete = () => fetchMessages();
 
@@ -49,31 +56,17 @@ const Chat = ({ setOpen, open }) => {
     };
   }, [token]);
 
-  // 🧩 Send message
+  // Send message
   const sendMessage = async (e) => {
     e.preventDefault();
     if (!message.trim() || !token) return;
 
-    // Debug log
-    console.log("Sending message:", {
-      text: message,
-      replyTo,
-      user: userId,
-      token,
-    });
-
     try {
       const res = await axios.post(
-        "http://localhost:8000/api/chat/send",
-        {
-          text: message,
-          replyTo,
-          user: userId,
-        },
+        `${API_URL}/chat/send`,
+        { text: message, replyTo, user: userId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      console.log("Response from backend:", res.data); // ✅ see backend response
 
       socket.emit("chat message", res.data);
       setMessage("");
@@ -83,10 +76,11 @@ const Chat = ({ setOpen, open }) => {
     }
   };
 
+  // Delete message
   const deleteMessage = async (id) => {
     if (!id || !token) return;
     try {
-      await axios.delete(`http://localhost:8000/api/chat/delete/${id}`, {
+      await axios.delete(`${API_URL}/chat/delete/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       socket.emit("delete message", id);
@@ -128,10 +122,7 @@ const Chat = ({ setOpen, open }) => {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {messages.map((msg, index) => (
-              <div
-                key={msg._id || index}
-                className="p-2 bg-pink-100 rounded-md"
-              >
+              <div key={msg._id || index} className="p-2 bg-pink-100 rounded-md">
                 {msg.replyTo && (
                   <div className="text-xs text-gray-500 mb-1">
                     Replying to: {msg.replyTo.text || "deleted"}

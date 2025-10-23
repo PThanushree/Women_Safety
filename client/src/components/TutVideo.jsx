@@ -8,8 +8,9 @@ const VideoSearchSection = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('relevance'); 
+  
+const API_URL = `${import.meta.env.VITE_API_URL}/videos/search`;
 
-  const API_URL = "http://localhost:8000/api/videos/search";
 
   const searchVideos = async (query, filterParam = 'relevance', pageToken = null) => {
     setLoading(true);

@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import { connectDb } from "./config/db.js";
 import dotenv from "dotenv";
-import userRoutes  from "./routes/user-route.js";
+import userRoutes from "./routes/user-route.js";
 import blogRoutes from "./routes/blogRoutes.js";
 import chatRoutes from "./routes/chat-route.js";
 import accountRoutes from "./routes/account-route.js";
@@ -33,6 +33,14 @@ app.use("/asset", express.static(path.join(path.resolve(), "asset")));
 
 // Database
 connectDb();
+
+app.use(
+  cors({
+    origin: ["https://women-safety-zowe.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  })
+);
 
 // --- Routes ---
 app.use("/api/blogs", blogRoutes);
@@ -108,7 +116,8 @@ app.get("/api/places", async (req, res) => {
         id: el.id,
         lat: el.lat,
         lng: el.lon,
-        name: el.tags?.name || amenity.charAt(0).toUpperCase() + amenity.slice(1),
+        name:
+          el.tags?.name || amenity.charAt(0).toUpperCase() + amenity.slice(1),
         address:
           el.tags?.["addr:street"] ||
           el.tags?.["addr:housename"] ||
@@ -121,14 +130,17 @@ app.get("/api/places", async (req, res) => {
     return res.status(400).json({ error: "Unsupported place type" });
   } catch (err) {
     console.error("Places API error:", err.message);
-    return res.status(500).json({ error: "Failed to fetch places", details: err.message });
+    return res
+      .status(500)
+      .json({ error: "Failed to fetch places", details: err.message });
   }
 });
 
 // Weather endpoint
 app.get("/api/weather", async (req, res) => {
   const { lat, lng } = req.query;
-  if (!lat || !lng) return res.status(400).json({ error: "Missing lat or lng" });
+  if (!lat || !lng)
+    return res.status(400).json({ error: "Missing lat or lng" });
 
   try {
     const url = "https://api.openweathermap.org/data/2.5/weather";
@@ -140,34 +152,60 @@ app.get("/api/weather", async (req, res) => {
     res.json({ temp, desc });
   } catch (err) {
     console.error("Weather API error:", err.message);
-    res.status(500).json({ error: "Failed to fetch weather", details: err.message });
+    res
+      .status(500)
+      .json({ error: "Failed to fetch weather", details: err.message });
   }
 });
 
+import http from "http";
+import { Server } from "socket.io";
+import app from "./app.js"; // your Express app
+import dotenv from "dotenv";
+dotenv.config();
+
+const port = 8000;
+
 // --- HTTP Server + Socket.io ---
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+
+const io = new Server(server, {
+  cors: {
+    origin: "https://women-safety-zowe.vercel.app", // deployed frontend URL
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
 
 // In-memory chat messages
 let messages = [];
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
+
+  // Send current messages to newly connected client
   socket.emit("chat message", messages);
 
+  // Receive a new message
   socket.on("chat message", (msg) => {
     const messageWithId = {
-      id: Math.random().toString(36).substr(2, 9),
+      _id: Math.random().toString(36).substr(2, 9), // use _id to match frontend
       text: msg.text,
       replyTo: msg.replyTo || null,
-      user: msg.user || "User",
+      user: msg.user || { name: "User", _id: "unknown" },
     };
     messages.push(messageWithId);
     io.emit("chat message", messageWithId);
+  });
+
+  // Delete a message
+  socket.on("delete message", (id) => {
+    messages = messages.filter((m) => m._id !== id);
+    io.emit("delete message", id);
   });
 
   socket.on("disconnect", () => console.log("User disconnected:", socket.id));
 });
 
 // --- Start server ---
-server.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+server.listen(port, () => console.log(`Server running on port ${port}`));
