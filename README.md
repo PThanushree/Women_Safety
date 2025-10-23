@@ -12,7 +12,7 @@
   <b>A web application aimed at enhancing women’s safety by providing SOS alerts, safe zones, guardian contacts, and real-time location sharing.</b>
 </p>
 
-🔗 **Live Website:** [https://women-safety-zowe.vercel.app](https://women-safety-zowe.vercel.app)
+🔗 **Live Website:** [https://women-safety-zowe.vercel.app](http://women-safety-zowe.vercel.app/)
 
 </div>
 
